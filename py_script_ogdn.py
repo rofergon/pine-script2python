@@ -1,2 +1,2 @@
 from pyine import convert
-_ = convert('./pine_script_ogdn.py')
+_ = convert('./pine_script_ogdn.pine')

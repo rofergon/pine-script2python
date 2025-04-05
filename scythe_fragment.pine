@@ -1,0 +1,52 @@
+//@version=5
+strategy("Scythe Optimizada", overlay=true)
+
+// Parámetros RSI
+rsiLength = input.int(14, "Longitud RSI")
+rsiOversold = input.int(30, "Nivel RSI Sobrevendido")
+rsiOverbought = input.int(70, "Nivel RSI Sobrecomprado")
+
+// Parámetros Stop Loss Dinámico
+stopLossPercent = input.float(2.0, "Stop Loss Inicial (%)", minval=0.1)
+
+// Función para obtener la fuente de datos correcta
+getSource(src) =>
+    switch src
+        "close" => close
+        "high"  => high
+        "low"   => low
+        "open"  => open
+
+// Calcular RSI
+rsi = ta.rsi(close, rsiLength)
+
+// Variables para seguimiento
+var float entryPrice = na
+var float stopLossLevel = na
+
+// Condiciones simplificadas
+longCondition = rsi < rsiOversold
+shortCondition = rsi > rsiOverbought
+
+// Gestión de entradas
+if longCondition
+    entryPrice := close
+    stopLossLevel := close * (1 - stopLossPercent / 100)
+    strategy.entry("Long", strategy.long)
+
+if shortCondition
+    entryPrice := close
+    stopLossLevel := close * (1 + stopLossPercent / 100)
+    strategy.entry("Short", strategy.short)
+
+// Actualizar stop loss dinámico (trailing stop)
+if strategy.position_size > 0  // Para posiciones largas
+    if close > entryPrice and close * (1 - stopLossPercent / 100) > stopLossLevel
+        stopLossLevel := close * (1 - stopLossPercent / 100)
+        entryPrice := close  // Actualizar precio de referencia para el trailing
+
+// Plotear indicadores
+plot(rsi, title="RSI", color=color.blue)
+plot(strategy.position_size != 0 ? stopLossLevel : na, 
+     title="Stop Loss Dinámico", color=color.red, 
+     style=plot.style_circles, linewidth=2) 

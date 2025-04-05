@@ -2,43 +2,51 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pyine.indicators import *
+import argparse
+import sys
+import os
 
-# Implementar funciones necesarias de TradingView
+# Import configuration and data provider
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from config import DEFAULT_SYMBOL, DEFAULT_TIMEFRAME, DEFAULT_START_DATE, DEFAULT_END_DATE
+from pyine.data_provider import get_historical_data
+
+# Implement necessary TradingView functions
 def ta_lowest(source, length):
-    """Implementación simplificada de ta.lowest"""
+    """Simplified implementation of ta.lowest"""
     if isinstance(source, (int, float)):
-        return source  # Si es un solo valor, lo devolvemos
-    # Si es una serie, devolvemos el mínimo de los últimos 'length' valores
+        return source  # If it's a single value, we return it
+    # If it's a series, we return the minimum of the last 'length' values
     if isinstance(source, pd.Series):
         return source.rolling(window=length).min().iloc[-1]
-    # Si es una lista, calculamos el mínimo de los últimos 'length' elementos
+    # If it's a list, we calculate the minimum of the last 'length' elements
     return min(source[-length:]) if len(source) >= length else None
 
 def ta_highest(source, length):
-    """Implementación simplificada de ta.highest"""
+    """Simplified implementation of ta.highest"""
     if isinstance(source, (int, float)):
-        return source  # Si es un solo valor, lo devolvemos
-    # Si es una serie, devolvemos el máximo de los últimos 'length' valores
+        return source  # If it's a single value, we return it
+    # If it's a series, we return the maximum of the last 'length' values
     if isinstance(source, pd.Series):
         return source.rolling(window=length).max().iloc[-1]
-    # Si es una lista, calculamos el máximo de los últimos 'length' elementos
+    # If it's a list, we calculate the maximum of the last 'length' elements
     return max(source[-length:]) if len(source) >= length else None
 
 def ta_crossover(a, b):
-    """Implementación de ta.crossover: a cruza por encima de b"""
-    # Necesita historiales, para simplificar asumimos que a y b son Series
+    """Implementation of ta.crossover: a crosses above b"""
+    # Needs history, for simplicity we assume a and b are Series
     if len(a) < 2 or len(b) < 2:
         return False
     return a.iloc[-2] < b.iloc[-2] and a.iloc[-1] > b.iloc[-1]
 
 def ta_crossunder(a, b):
-    """Implementación de ta.crossunder: a cruza por debajo de b"""
-    # Necesita historiales, para simplificar asumimos que a y b son Series
+    """Implementation of ta.crossunder: a crosses below b"""
+    # Needs history, for simplicity we assume a and b are Series
     if len(a) < 2 or len(b) < 2:
         return False
     return a.iloc[-2] > b.iloc[-2] and a.iloc[-1] < b.iloc[-1]
 
-# Añadir al módulo indicators
+# Add to the indicators module
 ta = type('ta', (), {
     'lowest': ta_lowest,
     'highest': ta_highest,
@@ -50,75 +58,50 @@ math = type('math', (), {
     'abs': abs
 })
 
-# Importar la estrategia convertida
+# Import the converted strategy
 import scythe_config as strategy
 
-# Función para inicializar datos de prueba
-def load_test_data():
-    """Carga datos de prueba o usa datos aleatorios si no hay disponibles"""
+# Function to load historical data
+def load_historical_data(symbol, timeframe, start_date, end_date, use_binance=True):
+    """Load historical data from Binance or generate random data"""
+    provider_type = 'binance' if use_binance else 'random'
     try:
-        # Intentar cargar datos reales si están disponibles
-        df = pd.read_csv('sample_data.csv')
-        return df
-    except:
-        # Generar datos sintéticos
-        print("Generando datos de prueba aleatorios...")
-        dates = pd.date_range(start='2022-01-01', periods=200, freq='D')
-        
-        # Generar precios realistas con más volatilidad
-        np.random.seed(42)
-        close = np.random.normal(100, 30, 200).cumsum() + 500  # Mayor volatilidad
-        
-        # Asegurar que los precios no sean negativos
-        close = np.maximum(close, 1)
-        
-        # Generar OHLC a partir de los precios de cierre
-        high = close + np.random.normal(0, 20, 200)  # Mayor rango
-        low = close - np.random.normal(0, 20, 200)   # Mayor rango
-        open_price = low + np.random.random(200) * (high - low)
-        
-        # Asegurar que high ≥ open, close ≥ low
-        high = np.maximum(high, np.maximum(open_price, close))
-        low = np.minimum(low, np.minimum(open_price, close))
-        
-        # Generar volumen
-        volume = np.random.normal(1000000, 500000, 200)
-        volume = np.maximum(volume, 100)  # Asegurar volumen positivo
-        
-        df = pd.DataFrame({
-            'date': dates,
-            'open': open_price,
-            'high': high,
-            'low': low,
-            'close': close,
-            'volume': volume
-        })
-        
-        return df
+        return get_historical_data(
+            symbol=symbol,
+            interval=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            provider_type=provider_type
+        )
+    except Exception as e:
+        print(f"Error loading historical data: {e}")
+        print("Generating random data...")
+        from pyine.data_provider import DataProvider
+        return DataProvider().generate_random_data()
 
-# Función para ejecutar la estrategia
+# Function to run the strategy
 def run_strategy(data):
-    """Ejecuta la estrategia convertida en los datos proporcionados"""
-    # Preparar listas para almacenar señales
+    """Run the converted strategy on the provided data"""
+    # Prepare lists to store signals
     buy_signals = []
     sell_signals = []
     
-    # Definir variables para cálculos
-    emas = {}  # Diccionario para almacenar EMAs
+    # Define variables for calculations
+    emas = {}  # Dictionary to store EMAs
     
-    # Recorrer los datos barra por barra (como lo haría Pine Script)
+    # Iterate through the data bar by bar (as Pine Script would)
     for i in range(len(data)):
-        if i < 50:  # Necesitamos al menos 50 barras para indicadores
+        if i < 50:  # We need at least 50 bars for indicators
             continue
             
-        # Actualizar variables globales con los datos de esta barra
+        # Update global variables with the data for this bar
         strategy.close = data['close'].iloc[i]
         strategy.high = data['high'].iloc[i]
         strategy.low = data['low'].iloc[i]
         strategy.open = data['open'].iloc[i]
         strategy.volume = data['volume'].iloc[i]
         
-        # También actualizar las del módulo indicators
+        # Also update those from the indicators module
         update_ohlcv(
             data['open'].iloc[i],
             data['high'].iloc[i],
@@ -127,67 +110,99 @@ def run_strategy(data):
             data['volume'].iloc[i]
         )
         
-        # Acceso a datos históricos
+        # Access to historical data
         close_history = data['close'].iloc[:i+1]
         high_history = data['high'].iloc[:i+1]
         low_history = data['low'].iloc[:i+1]
         volume_history = data['volume'].iloc[:i+1]
         
-        # Calcular RSI
+        # Calculate RSI
         rsi_value = calculate_rsi(close_history, strategy.rsiLength)
         
-        # Condiciones simplificadas para pruebas
-        # Solo usamos RSI para generar señales de ejemplo
+        # Simplified conditions for testing
+        # We only use RSI to generate example signals
         if rsi_value < strategy.rsiOversold:
-            print(f"Señal de compra en {data['date'].iloc[i]}, RSI: {rsi_value:.2f}")
+            print(f"Buy signal at {data['date'].iloc[i]}, RSI: {rsi_value:.2f}")
             buy_signals.append(i)
         
         if rsi_value > strategy.rsiOverbought:
-            print(f"Señal de venta en {data['date'].iloc[i]}, RSI: {rsi_value:.2f}")
+            print(f"Sell signal at {data['date'].iloc[i]}, RSI: {rsi_value:.2f}")
             sell_signals.append(i)
     
     return buy_signals, sell_signals
 
-# Función para graficar resultados
-def plot_results(data, buy_signals, sell_signals):
-    """Grafica los precios con las señales de compra/venta"""
+# Function to plot results
+def plot_results(data, buy_signals, sell_signals, symbol):
+    """Plot prices with buy/sell signals"""
     plt.figure(figsize=(12, 8))
     
-    # Graficar precio de cierre
-    plt.plot(data['close'], label='Precio de cierre')
+    # Plot closing price
+    plt.plot(data['date'], data['close'], label='Closing price')
     
-    # Graficar señales de compra y venta
+    # Plot buy and sell signals
     for buy in buy_signals:
-        plt.scatter(buy, data['close'].iloc[buy], color='green', marker='^', s=100)
+        plt.scatter(data['date'].iloc[buy], data['close'].iloc[buy], color='green', marker='^', s=100)
     
     for sell in sell_signals:
-        plt.scatter(sell, data['close'].iloc[sell], color='red', marker='v', s=100)
+        plt.scatter(data['date'].iloc[sell], data['close'].iloc[sell], color='red', marker='v', s=100)
     
-    plt.title('Estrategia Scythe Optimizada')
-    plt.xlabel('Barras')
-    plt.ylabel('Precio')
+    plt.title(f'Scythe Optimized Strategy - {symbol}')
+    plt.xlabel('Date')
+    plt.ylabel('Price')
     plt.legend()
     plt.grid(True)
+    plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
 
-# Función principal
+# Function to parse arguments
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Run Scythe strategy with historical data')
+    
+    parser.add_argument('--symbol', type=str, default=DEFAULT_SYMBOL,
+                        help=f'Trading pair (default: {DEFAULT_SYMBOL})')
+    
+    parser.add_argument('--timeframe', type=str, default=DEFAULT_TIMEFRAME,
+                        help=f'Time interval (1m, 5m, 1h, 1d, etc.) (default: {DEFAULT_TIMEFRAME})')
+    
+    parser.add_argument('--start_date', type=str, default=DEFAULT_START_DATE,
+                        help=f'Start date in YYYY-MM-DD format (default: {DEFAULT_START_DATE})')
+    
+    parser.add_argument('--end_date', type=str, default=DEFAULT_END_DATE,
+                        help=f'End date in YYYY-MM-DD format (default: {DEFAULT_END_DATE})')
+    
+    parser.add_argument('--random', action='store_true',
+                        help='Use random data instead of Binance')
+    
+    return parser.parse_args()
+
+# Main function
 def main():
-    print("Ejecutando la estrategia Scythe Optimizada convertida de Pine Script a Python")
+    print("Running the Scythe Optimized strategy converted from Pine Script to Python")
     
-    # Cargar datos
-    data = load_test_data()
-    print(f"Datos cargados: {len(data)} registros")
+    # Parse arguments
+    args = parse_arguments()
     
-    # Ejecutar estrategia
+    # Load data
+    data = load_historical_data(
+        symbol=args.symbol,
+        timeframe=args.timeframe,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        use_binance=not args.random
+    )
+    
+    print(f"Data loaded: {len(data)} records")
+    
+    # Run strategy
     buy_signals, sell_signals = run_strategy(data)
     
-    # Mostrar resultados
-    print(f"Total señales de compra: {len(buy_signals)}")
-    print(f"Total señales de venta: {len(sell_signals)}")
+    # Show results
+    print(f"Total buy signals: {len(buy_signals)}")
+    print(f"Total sell signals: {len(sell_signals)}")
     
-    # Graficar resultados
-    plot_results(data, buy_signals, sell_signals)
+    # Plot results
+    plot_results(data, buy_signals, sell_signals, args.symbol)
 
 if __name__ == "__main__":
     main() 

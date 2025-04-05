@@ -95,54 +95,54 @@ def MACD(src, signal_length, fast_length, slow_length, sma_source = False, sma_s
     hist = macd - signal
     return hist
 
-# Funciones específicas para Pine Script 5
+# Functions specific to Pine Script 5
 def calculate_rsi(source, length):
-    """Implementación de RSI usando pandas"""
+    """RSI implementation using pandas"""
     import pandas as pd
     import numpy as np
     
-    # Convertir source a pandas Series si no lo es
+    # Convert source to pandas Series if it's not already
     if not isinstance(source, pd.Series):
         source = pd.Series(source)
     
-    # Calcular cambios
+    # Calculate changes
     delta = source.diff()
     
-    # Separar ganancias (up) y pérdidas (down)
+    # Separate gains (up) and losses (down)
     up = delta.clip(lower=0)
     down = -1 * delta.clip(upper=0)
     
-    # Calcular promedio de ganancias y pérdidas
+    # Calculate average gains and losses
     roll_up = up.rolling(length).mean()
     roll_down = down.rolling(length).mean()
     
-    # Calcular RS y RSI
+    # Calculate RS and RSI
     rs = roll_up / roll_down
     rsi = 100.0 - (100.0 / (1.0 + rs))
     
-    return rsi.iloc[-1] if not rsi.empty else 50  # valor por defecto 50
+    return rsi.iloc[-1] if not rsi.empty else 50  # default value 50
 
 def calculate_ema(source, length):
-    """Implementación de EMA usando pandas"""
+    """EMA implementation using pandas"""
     import pandas as pd
     
-    # Convertir source a pandas Series si no lo es
+    # Convert source to pandas Series if it's not already
     if not isinstance(source, pd.Series):
         source = pd.Series(source)
     
     return source.ewm(span=length, adjust=False).mean().iloc[-1]
 
 def calculate_sma(source, length):
-    """Implementación de SMA usando pandas"""
+    """SMA implementation using pandas"""
     import pandas as pd
     
-    # Convertir source a pandas Series si no lo es
+    # Convert source to pandas Series if it's not already
     if not isinstance(source, pd.Series):
         source = pd.Series(source)
     
     return source.rolling(window=length).mean().iloc[-1]
 
-# Variables globales para simular el entorno de TradingView
+# Global variables to simulate TradingView environment
 close = 0
 high = 0
 low = 0
@@ -150,7 +150,7 @@ open = 0
 volume = 0
 
 def update_ohlcv(o, h, l, c, v):
-    """Actualiza las variables globales de OHLCV"""
+    """Updates the global OHLCV variables"""
     global open, high, low, close, volume
     open = o
     high = h
